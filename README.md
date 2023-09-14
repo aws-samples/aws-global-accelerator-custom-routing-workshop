@@ -1,17 +1,21 @@
-## My Project
+# aws-global-accelerator-custom-routing-workshop
 
-TODO: Fill this README out!
+This project is mainly used in AWS Global Accelerator Custom Routing Workshop. The project includes the following echo-server and echo-cli
 
-Be sure to:
+## echo-server
 
-* Change the title in this README
-* Edit your repository description on GitHub
+To monitor different protocols on multiple ports, the relevant configuration files are as follows:
 
-## Security
+Protocol | Default value of Port number | open by default
+-|-|-
+TCP|8080|true
+UDP|8081|true
+HTTP|8082|true
+Websocket|8083|true
+GRPC|8084|true
 
-See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
+The default parameters can be modified by modifying the relevant configuration items in the config.yaml file.
 
-## License
+### echo-cli
 
-This library is licensed under the MIT-0 License. See the LICENSE file.
-
+By default, access will be based on the default port number of the echo server. You can modify the access port and the number of tests through the configuration file.

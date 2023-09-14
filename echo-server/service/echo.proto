@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package proto;
+
+option go_package="github.com/turmind/aws-global-accelerator-custom-routing-workshop/echo-server/service;service";
+
+service EchoService{
+    rpc Echo(Request) returns (Response);
+}
+
+message Request{
+    string message = 1;
+}
+
+message Response{
+    string message = 1;
+}

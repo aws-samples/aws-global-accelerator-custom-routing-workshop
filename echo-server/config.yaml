@@ -1,0 +1,29 @@
+log:
+  level: debug
+  format: json
+server: 
+  tcp:
+    open: true
+    ports:
+      - 8080
+    host: 0.0.0.0
+  udp:
+    open: true
+    ports:
+      - 8081
+    host: 0.0.0.0
+  http:
+    open: true
+    ports:
+      - 8082
+    host: 0.0.0.0
+  websocket:
+    open: true
+    ports:
+      - 8083
+    host: 0.0.0.0
+  grpc:
+    open: true
+    ports:
+      - 8084
+    host: 0.0.0.0

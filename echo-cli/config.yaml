@@ -1,0 +1,22 @@
+log:
+  level: debug
+  format: json
+server:
+  host: 127.0.0.1
+  test_count: 10
+client:
+  tcp:
+    open: true
+    port: 8080
+  udp:
+    open: true
+    port: 8081
+  http:
+    open: true
+    port: 8082
+  websocket:
+    open: true
+    port: 8083
+  grpc:
+    open: true
+    port: 8084
