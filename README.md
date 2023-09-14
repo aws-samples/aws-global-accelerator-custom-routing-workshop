@@ -1,6 +1,6 @@
 # aws-global-accelerator-custom-routing-workshop
 
-This project is mainly used in AWS Global Accelerator Custom Routing Workshop. The project includes the following echo-server and echo-cli
+This project is mainly used in [AWS Global Accelerator Custom Routing Workshop](https://catalog.us-east-1.prod.workshops.aws/workshops/ac213084-3f4a-4b01-9835-5052d6096b5b). The project includes the following echo-server and echo-cli
 
 ## echo-server
 
