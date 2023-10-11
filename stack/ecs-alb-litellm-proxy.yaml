@@ -14,7 +14,7 @@ Parameters:
   ApiMasterKey:
     Type: String
     Default: "1234567890"
-    Descrption: "LitellmProxy API master key"
+    Description: "LitellmProxy API master key"
   MinContainersLitellmProxy:
     Type: Number
     Default: 3
@@ -426,8 +426,8 @@ Resources:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
       LoadBalancerArn: !Ref ApplicationLoadBalancer
-      Port: 443
-      Protocol: HTTPS
+      Port: 8080
+      Protocol: HTTP
       DefaultActions:
         - Type: forward
           TargetGroupArn: !Ref 'TargetGroupLitellmProxy'
