@@ -1,0 +1,496 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: Demo of an AWS Fargate cluster hosting LitellmProxy exposed through Application Load Balancer.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: ecs-LitellmProxy-demo
+    Description: "A friendly environment name that will be used for namespacing all cluster resources. Example: staging, qa, or production"
+  PrivateDNSNamespaceName:
+    Type: String
+    Default: service
+    Description: "The private DNS name that identifies the name that you want to use to locate your resources"
+  ApiMasterKey:
+    Type: String
+    Default: "1234567890"
+    Descrption: "LitellmProxy API master key"
+  MinContainersLitellmProxy:
+    Type: Number
+    Default: 3
+    Description: "Minimum number of ECS tasks per ECS service"
+  MaxContainersLitellmProxy:
+    Type: Number
+    Default: 30
+    Description: "Maximum number of ECS tasks per ECS service"
+  AutoScalingTargetValueLitellmProxy:
+    Type: Number
+    Default: 50
+    Description: "Target CPU utilizatio (%) for ECS services auto scaling"
+
+Metadata: 
+  AWS::CloudFormation::Interface: 
+    ParameterGroups: 
+      - 
+        Label: 
+          default: "Generic"
+        Parameters: 
+          - EnvironmentName
+          - PrivateDNSNamespaceName
+      - 
+        Label: 
+          default: "LitellmProxy Service"
+        Parameters: 
+          - MinContainersLitellmProxy
+          - MaxContainersLitellmProxy
+          - AutoScalingTargetValueLitellmProxy
+
+Mappings:
+  SubnetConfig:
+    VPC:
+      CIDR: '10.0.0.0/16'
+    PublicOne:
+      CIDR: '10.0.0.0/24'
+    PublicTwo:
+      CIDR: '10.0.1.0/24'
+    PublicThree:
+      CIDR: '10.0.2.0/24'
+    PrivateOne:
+      CIDR: '10.0.100.0/24'
+    PrivateTwo:
+      CIDR: '10.0.101.0/24'
+    PrivateThree:
+      CIDR: '10.0.102.0/24'
+
+Resources:
+
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      CidrBlock: !FindInMap ['SubnetConfig', 'VPC', 'CIDR']
+
+  PublicSubnetOne:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      VpcId: !Ref 'VPC'
+      CidrBlock: !FindInMap ['SubnetConfig', 'PublicOne', 'CIDR']
+      MapPublicIpOnLaunch: true
+  PublicSubnetTwo:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select
+        - 1
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      VpcId: !Ref 'VPC'
+      CidrBlock: !FindInMap ['SubnetConfig', 'PublicTwo', 'CIDR']
+      MapPublicIpOnLaunch: true
+  PublicSubnetThree:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select
+        - 2
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      VpcId: !Ref 'VPC'
+      CidrBlock: !FindInMap ['SubnetConfig', 'PublicThree', 'CIDR']
+      MapPublicIpOnLaunch: true
+
+  PrivateSubnetOne:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      VpcId: !Ref 'VPC'
+      CidrBlock: !FindInMap ['SubnetConfig', 'PrivateOne', 'CIDR']
+  PrivateSubnetTwo:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select
+        - 1
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      VpcId: !Ref 'VPC'
+      CidrBlock: !FindInMap ['SubnetConfig', 'PrivateTwo', 'CIDR']
+  PrivateSubnetThree:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select
+        - 2
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      VpcId: !Ref 'VPC'
+      CidrBlock: !FindInMap ['SubnetConfig', 'PrivateThree', 'CIDR']
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+  GatewayAttachement:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref 'VPC'
+      InternetGatewayId: !Ref 'InternetGateway'
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref 'VPC'
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: GatewayAttachement
+    Properties:
+      RouteTableId: !Ref 'PublicRouteTable'
+      DestinationCidrBlock: '0.0.0.0/0'
+      GatewayId: !Ref 'InternetGateway'
+  PublicSubnetOneRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetOne
+      RouteTableId: !Ref PublicRouteTable
+  PublicSubnetTwoRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetTwo
+      RouteTableId: !Ref PublicRouteTable
+  PublicSubnetThreeRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetThree
+      RouteTableId: !Ref PublicRouteTable
+
+  NatGatewayOneAttachment:
+    Type: AWS::EC2::EIP
+    DependsOn: GatewayAttachement
+    Properties:
+        Domain: vpc
+  NatGatewayOne:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGatewayOneAttachment.AllocationId
+      SubnetId: !Ref PublicSubnetOne
+  PrivateRouteTableOne:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref 'VPC'
+  PrivateRouteOne:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableOne
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGatewayOne
+  PrivateRouteTableOneAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableOne
+      SubnetId: !Ref PrivateSubnetOne
+  PrivateRouteTableTwo:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref 'VPC'
+  PrivateRouteTwo:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableTwo
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGatewayOne
+  PrivateRouteTableTwoAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableTwo
+      SubnetId: !Ref PrivateSubnetTwo
+  PrivateRouteTableThree:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref 'VPC'
+  PrivateRouteThree:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableThree
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGatewayOne
+  PrivateRouteTableThreeAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableThree
+      SubnetId: !Ref PrivateSubnetThree
+
+  BedrockRunTimeEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: "*"
+            Principal: "*"
+            Resource: "*"
+      SubnetIds:
+        - !Ref PrivateSubnetOne
+        - !Ref PrivateSubnetTwo
+        - !Ref PrivateSubnetThree
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.bedrock-runtime
+      VpcEndpointType: Interface
+      VpcId: !Ref 'VPC'
+      SecurityGroupIds:
+        - !Ref 'VPCEndpointSecurityGroup'
+
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Access to the application load balancer
+      VpcId: !Ref 'VPC'
+
+  LoadBalancerSecurityGroupSelfIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref LoadBalancerSecurityGroup
+      CidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      FromPort: 8080
+      ToPort: 8080
+
+  ContainerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Access to the Fargate containers
+      VpcId: !Ref 'VPC'
+
+  ContainerSecurityGroupSelfIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref ContainerSecurityGroup
+      SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+      IpProtocol: tcp
+      FromPort: 8080
+      ToPort: 8080
+
+  VPCEndpointSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Access to the bedrock runtime
+      VpcId: !Ref 'VPC'
+
+  VPCEndpointSecurityGroupSelfIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref VPCEndpointSecurityGroup
+      CidrIp: !FindInMap ['SubnetConfig', 'VPC', 'CIDR']
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+
+  AutoScalingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceAutoscaleRole'
+
+  ECSRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: [ecs.amazonaws.com]
+          Action: ['sts:AssumeRole']
+      Path: /
+      Policies:
+      - PolicyName: ecs-service
+        PolicyDocument:
+          Statement:
+          - Effect: Allow
+            Action:
+              - 'ec2:AttachNetworkInterface'
+              - 'ec2:CreateNetworkInterface'
+              - 'ec2:CreateNetworkInterfacePermission'
+              - 'ec2:DeleteNetworkInterface'
+              - 'ec2:DeleteNetworkInterfacePermission'
+              - 'ec2:Describe*'
+              - 'ec2:DetachNetworkInterface'
+
+              - 'elasticloadbalancing:DeregisterInstancesFromLoadBalancer'
+              - 'elasticloadbalancing:DeregisterTargets'
+              - 'elasticloadbalancing:Describe*'
+              - 'elasticloadbalancing:RegisterInstancesWithLoadBalancer'
+              - 'elasticloadbalancing:RegisterTargets'
+            Resource: '*'
+
+  ECSTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: [ecs-tasks.amazonaws.com]
+          Action: ['sts:AssumeRole']
+      Path: /
+      Policies:
+        - PolicyName: AmazonECSTaskExecutionRolePolicy
+          PolicyDocument:
+            Statement:
+            - Effect: Allow
+              Action:
+                # Allow the ECS Tasks to download images from ECR
+                - 'ecr:GetAuthorizationToken'
+                - 'ecr:BatchCheckLayerAvailability'
+                - 'ecr:GetDownloadUrlForLayer'
+                - 'ecr:BatchGetImage'
+
+                # Allow the ECS tasks to upload logs to CloudWatch
+                - 'logs:CreateLogStream'
+                - 'logs:PutLogEvents'
+              Resource: '*'
+
+  TaskRoleLitellmProxy:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Policies:
+      - PolicyName: bedrock-table-access
+        PolicyDocument:
+          Statement:
+          - Effect: Allow
+            Action:
+            - bedrock:*
+            Resource: '*'
+
+  TaskDefinitionLitellmProxy:
+    Type: 'AWS::ECS::TaskDefinition'
+    Properties:
+      TaskRoleArn: !GetAtt TaskRoleLitellmProxy.Arn
+      ExecutionRoleArn: !GetAtt ECSTaskExecutionRole.Arn
+      RequiresCompatibilities:
+        - FARGATE
+      ContainerDefinitions:
+          - Name: 'LitellmProxy'
+            Image: '<your-account-id>.dkr.ecr.<your-region>.amazonaws.com/litellm-proxy:latest'
+            Essential: true
+            PortMappings:
+              - ContainerPort: 8080
+                Protocol: tcp
+            Environment:
+              - Name: AWS_REGION_NAME
+                Value: !Ref 'AWS::Region'
+              - Name: API_MASTER_KEY
+                Value: !Ref 'ApiMasterKey'
+      NetworkMode: awsvpc
+      Memory: '2048'
+      Cpu: '1024'
+
+  TargetGroupLitellmProxy:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 30
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 3
+      HealthCheckPath: /health
+      UnhealthyThresholdCount: 3
+      Matcher:
+        HttpCode: '200'
+      Port: 8080
+      Protocol: HTTP
+      TargetType: ip
+      VpcId: !Ref 'VPC'
+  
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Ref EnvironmentName
+      Scheme: internet-facing
+      Subnets:
+        - !Ref PublicSubnetOne
+        - !Ref PublicSubnetTwo
+        - !Ref PublicSubnetThree
+      SecurityGroups:
+        - !Ref LoadBalancerSecurityGroup
+      Type: application
+  
+  ApplicationListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 443
+      Protocol: HTTPS
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref 'TargetGroupLitellmProxy'
+
+  ServiceLitellmProxy: 
+    Type: AWS::ECS::Service
+    DependsOn:
+      - PrivateRouteOne
+      - PrivateRouteTwo
+      - PrivateRouteThree
+    Properties: 
+      Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref TaskDefinitionLitellmProxy
+      LaunchType: FARGATE
+      DesiredCount: 3
+      NetworkConfiguration:
+          AwsvpcConfiguration:
+            AssignPublicIp: DISABLED
+            Subnets:
+              - !Ref PrivateSubnetOne
+              - !Ref PrivateSubnetTwo
+              - !Ref PrivateSubnetThree
+            SecurityGroups:
+              - !Ref ContainerSecurityGroup
+      LoadBalancers:
+        - ContainerName: LitellmProxy
+          ContainerPort: 8080
+          TargetGroupArn: !Ref 'TargetGroupLitellmProxy'
+
+  AutoScalingTargetLitellmProxy:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MinCapacity: !Ref MinContainersLitellmProxy
+      MaxCapacity: !Ref MaxContainersLitellmProxy
+      ResourceId: !Join ['/', [service, !Ref ECSCluster, !GetAtt ServiceLitellmProxy.Name]]
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+      RoleARN: !GetAtt AutoScalingRole.Arn
+
+  AutoScalingPolicyLitellmProxy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Join ['', [!GetAtt ServiceLitellmProxy.Name, '-AutoScalingPolicy']]
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref AutoScalingTargetLitellmProxy
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        TargetValue: !Ref AutoScalingTargetValueLitellmProxy
+
+Outputs:
+  ECSClusterName:
+    Description: The name of the ECS cluster
+    Value: !Ref 'ECSCluster'
+  VpcId:
+    Description: The ID of the VPC that this stack is deployed in
+    Value: !Ref 'VPC'
+  ContainerSecurityGroup:
+    Description: A security group used to allow Fargate containers to receive traffic
+    Value: !Ref 'ContainerSecurityGroup'
+  LoadBalancerDNS:
+    Description: The DNS name of the load balancer
+    Value: !GetAtt 'ApplicationLoadBalancer.DNSName'
+  ApiMasterKey:
+    Description: LitellmProxy API master key
+    Value: !Ref 'ApiMasterKey'
