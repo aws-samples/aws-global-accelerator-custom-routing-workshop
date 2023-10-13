@@ -11,7 +11,7 @@ Parameters:
     Type: String
     Default: service
     Description: "The private DNS name that identifies the name that you want to use to locate your resources"
-  ApiMasterKey:
+  LitellmProxyMasterKey:
     Type: String
     Default: "1234567890"
     Description: "LitellmProxy API master key"
@@ -387,8 +387,8 @@ Resources:
             Environment:
               - Name: AWS_REGION_NAME
                 Value: !Ref 'AWS::Region'
-              - Name: API_MASTER_KEY
-                Value: !Ref 'ApiMasterKey'
+              - Name: LITELLM_PROXY_MASTER_KEY
+                Value: !Ref 'LitellmProxyMasterKey'
       NetworkMode: awsvpc
       Memory: '2048'
       Cpu: '1024'
