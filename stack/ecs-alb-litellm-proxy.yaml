@@ -491,6 +491,6 @@ Outputs:
   LoadBalancerDNS:
     Description: The DNS name of the load balancer
     Value: !GetAtt 'ApplicationLoadBalancer.DNSName'
-  ApiMasterKey:
-    Description: LitellmProxy API master key
-    Value: !Ref 'ApiMasterKey'
+  LitellmProxyMasterKey:
+    Description: LitellmProxy master key
+    Value: !Ref 'LitellmProxyMasterKey'
