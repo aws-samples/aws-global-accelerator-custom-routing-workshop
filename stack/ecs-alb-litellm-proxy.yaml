@@ -234,6 +234,26 @@ Resources:
       SecurityGroupIds:
         - !Ref 'VPCEndpointSecurityGroup'
 
+  SageMakerRuntimeEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: "*"
+            Principal: "*"
+            Resource: "*"
+      SubnetIds:
+        - !Ref PrivateSubnetOne
+        - !Ref PrivateSubnetTwo
+        - !Ref PrivateSubnetThree
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.sagemaker.runtime
+      VpcEndpointType: Interface
+      VpcId: !Ref 'VPC'
+      SecurityGroupIds:
+        - !Ref 'VPCEndpointSecurityGroup'
+
   ECSCluster:
     Type: AWS::ECS::Cluster
 
@@ -361,6 +381,8 @@ Resources:
             Principal:
               Service: ecs-tasks.amazonaws.com
             Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AmazonSageMakerFullAccess"
       Policies:
       - PolicyName: bedrock-table-access
         PolicyDocument:
