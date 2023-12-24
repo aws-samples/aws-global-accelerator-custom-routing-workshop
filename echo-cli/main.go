@@ -4,10 +4,15 @@ import (
 	"flag"
 	"os"
 
-	"github.com/sirupsen/logrus"
 	"github.com/aws-samples/aws-global-accelerator-custom-routing-workshop/echo-cli/client"
+	"github.com/sirupsen/logrus"
 	yaml "gopkg.in/yaml.v2"
 )
+
+type ClientConfig struct {
+	Open bool `yaml:"open"`
+	Port int  `yaml:"port"`
+}
 
 type Config struct {
 	// config for log
@@ -22,26 +27,16 @@ type Config struct {
 	} `yaml:"server"`
 	// config for client
 	Client struct {
-		Tcp struct {
-			Open bool `yaml:"open"`
-			Port int  `yaml:"port"`
-		} `yaml:"tcp"`
-		Udp struct {
-			Open bool `yaml:"open"`
-			Port int  `yaml:"port"`
-		} `yaml:"udp"`
-		Http struct {
-			Open bool `yaml:"open"`
-			Port int  `yaml:"port"`
-		} `yaml:"http"`
-		Websocket struct {
-			Open bool `yaml:"open"`
-			Port int  `yaml:"port"`
-		} `yaml:"websocket"`
-		Grpc struct {
-			Open bool `yaml:"open"`
-			Port int  `yaml:"port"`
-		} `yaml:"grpc"`
+		// config for tcp
+		Tcp ClientConfig `yaml:"tcp"`
+		// config for udp
+		Udp ClientConfig `yaml:"udp"`
+		// config for http
+		Http ClientConfig `yaml:"http"`
+		// config for grpc
+		Grpc ClientConfig `yaml:"grpc"`
+		// config for websocket
+		Websocket ClientConfig `yaml:"websocket"`
 	} `yaml:"client"`
 }
 

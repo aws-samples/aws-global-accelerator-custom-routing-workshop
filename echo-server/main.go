@@ -6,10 +6,16 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/sirupsen/logrus"
 	"github.com/aws-samples/aws-global-accelerator-custom-routing-workshop/echo-server/service"
+	"github.com/sirupsen/logrus"
 	yaml "gopkg.in/yaml.v2"
 )
+
+type ServerConfig struct {
+	Open  bool   `yaml:"open"`
+	Host  string `yaml:"host"`
+	Ports []int  `yaml:"ports"`
+}
 
 type Config struct {
 	// config for log
@@ -20,44 +26,22 @@ type Config struct {
 	// config for server
 	Server struct {
 		// config for tcp
-		Tcp struct {
-			Open  bool   `yaml:"open"`
-			Host  string `yaml:"host"`
-			Ports []int  `yaml:"ports"`
-		} `yaml:"tcp"`
+		Tcp ServerConfig `yaml:"tcp"`
 		// config for udp
-		Udp struct {
-			Open  bool   `yaml:"open"`
-			Host  string `yaml:"host"`
-			Ports []int  `yaml:"ports"`
-		} `yaml:"udp"`
+		Udp ServerConfig `yaml:"udp"`
 		// config for http
-		Http struct {
-			Open  bool   `yaml:"open"`
-			Host  string `yaml:"host"`
-			Ports []int  `yaml:"ports"`
-		} `yaml:"http"`
+		Http ServerConfig `yaml:"http"`
 		// config for websocket
-		Websocket struct {
-			Open  bool   `yaml:"open"`
-			Host  string `yaml:"host"`
-			Ports []int  `yaml:"ports"`
-		} `yaml:"websocket"`
+		Websocket ServerConfig `yaml:"websocket"`
 		// config for grpc
-		Grpc struct {
-			Open  bool   `yaml:"open"`
-			Host  string `yaml:"host"`
-			Ports []int  `yaml:"ports"`
-		} `yaml:"grpc"`
+		Grpc ServerConfig `yaml:"grpc"`
 	} `yaml:"server"`
 }
 
-func main() {
-	configFileName := flag.String("f", "config.yaml", "config file name")
-	flag.Parse()
+func loadConfig(configFileName string) Config {
 	config := Config{}
 	// get configyaml from file config.yaml
-	configYaml, err := os.ReadFile(*configFileName)
+	configYaml, err := os.ReadFile(configFileName)
 	if err != nil {
 		panic(err)
 	}
@@ -65,6 +49,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	return config
+}
+
+func initLog(config Config) {
 	// set log format and level
 	logLevel := config.Log.Level
 	level, err := logrus.ParseLevel(logLevel)
@@ -79,6 +67,13 @@ func main() {
 	logrus.SetLevel(level)
 	logrus.SetOutput(os.Stdout)
 	logrus.Debugf("%+v", config)
+}
+
+func main() {
+	configFileName := flag.String("f", "config.yaml", "config file name")
+	flag.Parse()
+	config := loadConfig(*configFileName)
+	initLog(config)
 
 	// start tcp server
 	if config.Server.Tcp.Open {
