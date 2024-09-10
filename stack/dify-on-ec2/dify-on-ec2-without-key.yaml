@@ -5,10 +5,12 @@ Description: Demo of dify deployed in EC2.
 Parameters:
   InstanceType:
     Type: String
-    Default: t4g.large
+    Default: t4g.xlarge
     AllowedValues:
       - t4g.medium
       - t4g.large
+      - t4g.xlarge
+      - t4g.2xlarge
       - c6g.large
       - c6g.xlarge
       - m6g.large
