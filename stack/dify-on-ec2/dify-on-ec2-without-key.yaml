@@ -22,9 +22,9 @@ Parameters:
 Mappings:
   RegionMap:
     cn-north-1:
-      AMI: ami-09a90b561641dffde
+      AMI: ami-0f0ceaade6c3724f6
     cn-northwest-1:
-      AMI: ami-05f2d533694412342
+      AMI: ami-0c0a135516bf89f1c
   SubnetConfig:
     VPC:
       CIDR: '10.0.0.0/16'
