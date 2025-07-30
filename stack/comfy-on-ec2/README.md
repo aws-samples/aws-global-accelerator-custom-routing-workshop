@@ -1,4 +1,4 @@
-# 在亚马逊云科技上构建灵活可扩展的ComfyUI处理工作流
+# 从开发到生产：在亚马逊云科技上打造高效经济的ComfyUI工作流
 
 这是一个简单的 ComfyUI 任务管理和弹性的Demo，也可以稍微改动即可用在其他异步的需要弹性的场景，方案优势：
 
@@ -178,9 +178,6 @@ sudo chmod 755 efs
 wget https://github.com/aws-samples/aws-global-accelerator-custom-routing-workshop/raw/refs/heads/main/stack/comfy-on-ec2/scripts.zip -O /home/ubuntu/comfy/scripts.zip
 cd /home/ubuntu/comfy/
 unzip scripts.zip
-chmod +x start_service.sh
-chmod +x create_env.sh
-chmod +x delete_env.sh
 # 注意应该在上面的venv环境中执行
 . /home/ubuntu/venv/bin/activate
 pip install boto3 dotenv
@@ -231,7 +228,7 @@ echo "SCALE_COOLDOWN=180" >> /home/ubuntu/comfy/env
 ！！！请注意！！！如果进行了模型复制，请确保模型更新都以s3上的为准。
 
 ```bash
-# 生产环境机器初始化时把模型复制到本地，请选择执行以下命令：
+# 如果选择 生产环境机器初始化时把模型复制到本地，请选择执行以下命令：
 # 使用 aws cli 进行模型复制
 echo "COPY_MODEL_TO_LOCAL=awscli" >> /home/ubuntu/comfy/env
 # 使用 s5cmd 进行模型复制
@@ -245,6 +242,10 @@ echo "COPY_MODEL_TO_LOCAL=s5cmd" >> /home/ubuntu/comfy/env
   * EFS适合随机读取场景
 * 缺点
   * 有额外费用，顺序读取性能不能把带宽打满
+
+#### 标准环境的额外配置
+
+标准环境是给测试开发使用的，因此不需要配置弹性伸缩，我们只需要配置一下 SQS （和生产环境保持一致，方便测试）和标准环境的 S3 桶。
 
 ```bash
 
@@ -275,7 +276,7 @@ aws s3 sync s3://<已经做好的桶>/ s3://${S3_BUCKET}/ --delete --region "$RE
 全新制作：使用Comfy的初始内容进行创建
 
 ```bash
-# 注意这里会高度同步，如果s3本身有数据，会被删除
+# 注意这里会和s3保持完全一致的同步，如果s3本身有数据，会被删除
 aws s3 sync /home/ubuntu/comfy/ComfyUI/models s3://${S3_BUCKET}/models --delete
 aws s3 sync /home/ubuntu/comfy/ComfyUI/input s3://${S3_BUCKET}/input --delete
 aws s3 sync /home/ubuntu/comfy/ComfyUI/output s3://${S3_BUCKET}/output --delete
@@ -315,7 +316,6 @@ WantedBy=multi-user.target
 EOF
 
 cat << EOF | sudo tee /etc/systemd/system/comfy-manage.service
-[Unit]
 [Unit]
 Description=ComfyUI Service
 After=network-online.target
@@ -379,13 +379,14 @@ aws s3 cp s3://${S3_BUCKET}/output/i-0b0f65228098d31dd/parse_job.log -
 * 也可以通过 send_job.py 发送指令到机器上，实现机器上直接下载模型。
 
 ``` bash
+# 以下是一个测试例子
+# 下载演示工作流用到的相关模型
 wget "https://huggingface.co/linsg/AWPainting_v1.5.safetensors/resolve/main/AWPainting_v1.5.safetensors?download=true" -O /home/ubuntu/comfy/ComfyUI/models/checkpoints/AWPainting_v1.5.safetensors
 wget "https://huggingface.co/hakurei/waifu-diffusion-v1-4/resolve/main/vae/kl-f8-anime2.ckpt?download=true" -O /home/ubuntu/comfy/ComfyUI/models/vae/kl-f8-anime2.ckpt
 wget "https://huggingface.co/ac-pill/upscale_models/resolve/main/RealESRGAN_x4plus_anime_6B.pth?download=true" -O /home/ubuntu/comfy/ComfyUI/models/upscale_models/RealESRGAN_x4plus_anime_6B.pth
 wget "https://huggingface.co/lllyasviel/ControlNet-v1-1/resolve/main/control_v11f1e_sd15_tile.pth?download=true" -O /home/ubuntu/comfy/ComfyUI/models/controlnet/control_v11f1e_sd15_tile.pth
 wget "https://huggingface.co/Comfy-Org/stable-diffusion-v1-5-archive/resolve/main/v1-5-pruned-emaonly-fp16.safetensors?download=true" -O /home/ubuntu/comfy/ComfyUI/models/checkpoints/v1-5-pruned-emaonly-fp16.safetensors
-# 重启 ComfyUI 以加载模型
-sudo systemctl restart comfyui.service
+
 # 观察日志
 journalctl -b -f
 ```
@@ -412,7 +413,9 @@ journalctl -b -f
 
 ## 测试提交任务
 
-* 发送任务程序环境依赖 env、comfy_utils.py 和 send_job.py 文件
+* 发送任务程序 send_job.py 中提供了演示代码供参考
+* 该文件可以独立部署，按需集成到业务代码中
+* 注意：环境依赖env、comfy_utils.py文件，和演示的工作流simple_workflow.json
 * env文件只需要改动里面的 ENV=base 就是对应不同的环境。
 
 ```bash
@@ -428,6 +431,14 @@ Adjusted ASG capacity to 1
 # 可以看到机器已经启动
 ```
 
+* 例子中还提供了一些便捷指令，例如可以通过 exec_cmd 在 base 环境中执行下载模型的任务：
+
+```bash
+execute_data = {
+    "exec_cmd": "wget 'https://huggingface.co/linsg/AWPainting_v1.5.safetensors/resolve/main/AWPainting_v1.5.safetensors?download=true' -O /home/ubuntu/comfy/ComfyUI/models/checkpoints/AWPainting_v1.5.safetensors",
+}
+```
+
 *（可选）可以在 parse_job.py 中添加业务逻辑通知回调代码，实现自己的业务逻辑
   * 在任务完成后，进行回调操作：在 parse_job.py 中查找关键字：# 这里可以添加自定义任务的业务回调处理
   * 在机器要缩容时，进行退出前的善后工作：在 parse_job.py 中查找关键字：# 这里可以添加自定义善后工作逻辑
@@ -438,14 +449,6 @@ Adjusted ASG capacity to 1
 # 注意如果修改了 min/max size，需要在env文件里做对应修改
 # --min-size 0 --max-size 5 
 aws autoscaling update-auto-scaling-group --auto-scaling-group-name simple-comfy-<ENV> --desired-capacity 1
-```
-
-* 发送任务还可以进行任务的提交，参考 send_obj.py 中的 execute_data 代码，例如可以发送下载模型的任务，让在 base 环境中下载：
-
-```bash
-execute_data = {
-    "exec_cmd": "wget 'https://huggingface.co/linsg/AWPainting_v1.5.safetensors/resolve/main/AWPainting_v1.5.safetensors?download=true' -O /home/ubuntu/comfy/ComfyUI/models/checkpoints/AWPainting_v1.5.safetensors",
-}
 ```
 
 ## 删除环境
@@ -460,37 +463,3 @@ execute_data = {
 
 * https://aws.amazon.com/cn/blogs/china/using-ec2-to-build-comfyui-and-combine-it-with-krita-practice/
 * https://docs.aws.amazon.com/zh_cn/AmazonS3/latest/userguide/mountpoint-installation.html#mountpoint.install.deb
-
-### （可选）安装 cloudwatch agent，用于指标监测
-
-参考：https://docs.aws.amazon.com/zh_cn/AmazonCloudWatch/latest/monitoring/download-cloudwatch-agent-commandline.html
-
-```bash
-wget https://amazoncloudwatch-agent.s3.amazonaws.com/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
-sudo dpkg -i -E amazon-cloudwatch-agent.deb
-TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
-INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id)
-mkdir /home/ubuntu/cloudwatch-agent
-cat > /home/ubuntu/cloudwatch-agent/agent.json <<EOF
-{
-  "metrics": {
-    "append_dimensions": {
-      "InstanceId": "${INSTANCE_ID}"
-    },
-    "metrics_collected": {
-      "nvidia_gpu": {
-        "measurement": [
-          "utilization_gpu",
-          "utilization_memory",
-          "memory_total",
-          "memory_used",
-          "memory_free"
-        ],
-        "metrics_collection_interval": 30
-      }
-    }
-  }
-}
-EOF
-sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/home/ubuntu/cloudwatch-agent/agent.json -s
-```
