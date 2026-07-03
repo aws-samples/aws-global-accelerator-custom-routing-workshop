@@ -1,6 +1,6 @@
 module github.com/aws-samples/aws-global-accelerator-custom-routing-workshop/echo-server
 
-go 1.19
+go 1.25.0
 
 require (
 	github.com/gorilla/websocket v1.5.0
@@ -13,8 +13,8 @@ require (
 
 require (
 	github.com/golang/protobuf v1.5.3 // indirect
-	golang.org/x/net v0.38.0 // indirect
-	golang.org/x/sys v0.31.0 // indirect
-	golang.org/x/text v0.23.0 // indirect
+	golang.org/x/net v0.55.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230525234030-28d5490b6b19 // indirect
 )
