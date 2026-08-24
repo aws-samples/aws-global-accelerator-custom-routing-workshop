@@ -1,9 +1,9 @@
 module github.com/aws-samples/aws-global-accelerator-custom-routing-workshop/echo-server
 
-go 1.19
+go 1.23.0
 
 require (
-	github.com/gorilla/websocket v1.5.0
+	github.com/gorilla/websocket v1.5.3
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/sirupsen/logrus v1.9.3
 	google.golang.org/grpc v1.57.1
